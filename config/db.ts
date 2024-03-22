@@ -1,28 +1,32 @@
-import { neonConfig, Pool } from "@neondatabase/serverless"
-import { PrismaNeon } from "@prisma/adapter-neon"
 import { PrismaClient } from "@prisma/client"
 import dotenv from "dotenv"
 
-// import ws from "ws"
-
+// Initialize environment variables
 dotenv.config()
 
-// neonConfig.webSocketConstructor = ws
-const connectionString = `${process.env.DATABASE_URL}`
-
-const pool = new Pool({ connectionString })
-const adapter = new PrismaNeon(pool)
-
+// Create a singleton instance of PrismaClient
 const prismaClientSingleton = () => {
-  return new PrismaClient({ adapter })
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  })
 }
 
+// Declare global variable for Prisma Client in the TypeScript global namespace
 declare global {
   var prisma: undefined | ReturnType<typeof prismaClientSingleton>
 }
 
+// Initialize Prisma Client: Use existing global instance or create a new one
 const prisma = globalThis.prisma ?? prismaClientSingleton()
 
+// Export the Prisma Client instance
 export default prisma
 
-if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma
+// In non-production environments, reuse the Prisma Client instance across hot reloads
+if (process.env.NODE_ENV !== "production") {
+  globalThis.prisma = prisma
+}
