@@ -1,0 +1,421 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid())
+  clerkId      String? // Clerk ID for authentication and authorization
+  email        String         @unique
+  name         String?
+  reviews      Review[]
+  addresses    Address[]
+  shops        Shop[]         @relation(name: "ShopOwner")
+  Order        Order[]
+  wishList     WishList[] // User's wish list
+  cart         Cart[] // User's shopping cart
+  notification Notification[] // Notifications for the user
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Address {
+  id            String   @id @default(uuid())
+  street        String
+  city          String
+  province      String
+  country       String
+  primary       Boolean // Flag to identify the primary address
+  zip           String?
+  phone         String?
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  shopId        String?
+  shop          Shop?    @relation(fields: [shopId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  shippingOrder Order[] // Orders shipped to this address
+}
+
+model Shop {
+  id          String      @id @default(uuid())
+  ownerId     String
+  owner       User        @relation(name: "ShopOwner", fields: [ownerId], references: [id])
+  name        String
+  description String
+  address     Address[] // Addresses associated with the shop
+  products    Product[] // Products offered by the shop
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  Attribute   Attribute[] // Attributes defined by the shop for products
+  Order       Order[] // Orders placed in the shop
+  Coupon      Coupon[] // Coupons created by the shop
+}
+
+model Attachment {
+  id          String    @id @default(uuid())
+  url         String // URL to the image
+  thumbnail   String? // URL to the thumbnail image
+  caption     String? // Caption or description of the image
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  isMainImage Boolean   @default(false) // Indicates if this attachment is the main image of the product
+  Tag         Tag[] // Tags associated with the attachment
+  categoryId  String? // Field to indicate the attachment is linked to a Category
+  category    Category? @relation
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id                String               @id @default(uuid())
+  name              String
+  description       String
+  brand             String?
+  productType       ProductType // Simple or variable product
+  tags              Tag[] // Tags associated with the product
+  categories        CategoryProduct[] // Categories the product belongs to
+  subCategories     SubCategoryProduct[] // Subcategories the product belongs to
+  variants          Variant[] // Variants of the product (for variable products)
+  attributeValues   AttributeValue[] // Attribute values for the product
+  inStock           Boolean              @default(true) // Indicates if the product is in stock
+  isTaxable         Boolean              @default(false) // Indicates if the product is taxable
+  price             Float // Base price for simple products
+  salePrice         Float? // Temporary promotional price
+  sku               String?              @unique // Stock Keeping Unit (SKU)
+  quantity          Int // Quantity available (for simple products)
+  unit              String? // Unit of measure (e.g., kg, liters)
+  gallery           Attachment[] // Images associated with the product
+  status            ProductStatus        @default(DRAFT) // Status of the product (e.g., PUBLISH, DRAFT)
+  reviews           Review[] // Reviews for the product
+  rating            Float                @default(0) // Average rating of the product
+  numReviews        Int                  @default(0) // Number of reviews for the product
+  refundable        Boolean              @default(false) // Indicates if the product is refundable
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  shopId            String?
+  shop              Shop?                @relation(fields: [shopId], references: [id])
+  orderProductPivot OrderProductPivot[] // Pivot table for order-product relationship
+  wishLists         WishList[] // Wish lists the product is added to
+  carts             Cart[] // Shopping carts the product is added to
+}
+
+// Model for product variants (applicable for variable products)
+model Variant {
+  id               String          @id @default(uuid())
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id])
+  name             String
+  price            Float // Specific price for this variant
+  salePrice        Float? // Optional promotional price for this variant
+  sold             Int // Number of units sold for this variant
+  sku              String          @unique // Stock Keeping Unit (SKU) for the variant
+  isDisabled       Boolean         @default(false) // Indicates if the variant is disabled
+  quantity         Int // Inventory for this specific variant
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  variantionOption VariantOption[] // Options for the variant (e.g., size, color)
+  inventory        Inventory[] // Inventory records for the variant
+}
+
+model VariantOption {
+  id        String   @id @default(uuid())
+  name      String // Name of the option (e.g., Color, Size)
+  value     String // Value of the option (e.g., Red, Large)
+  variantId String
+  variant   Variant  @relation(fields: [variantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AttributeValue {
+  id          String    @id @default(uuid())
+  value       String // Value of the attribute
+  attribute   Attribute @relation(fields: [attributeId], references: [id])
+  attributeId String
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Attribute {
+  id        String           @id @default(uuid())
+  name      String // Name of the attribute
+  shop      Shop             @relation(fields: [shopId], references: [id])
+  shopId    String
+  values    AttributeValue[] // Values associated with the attribute
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+enum ProductType {
+  SIMPLE // Simple product without variants
+  VARIABLE // Product with variants (e.g., different sizes, colors)
+}
+
+enum ProductStatus {
+  PUBLISH // Published and available for purchase
+  DRAFT // Draft, not yet published
+  DISCOUNTINUED // Discontinued and no longer available
+  OUT_OF_STOCK // Out of stock
+}
+
+// Pivot table for order-product relationship
+model OrderProductPivot {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  unitPrice Float // Unit price of the product for the order
+  subTotal  Float // Subtotal for the product in the order
+  quantity  Int // Quantity of the product in the order
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id           String     @id @default(uuid())
+  name         String // Name of the tag
+  image        Attachment @relation(fields: [attachmentId], references: [id]) // Image associated with the tag
+  icon         String // Icon for the tag
+  product      Product    @relation(fields: [productId], references: [id])
+  productId    String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  attachmentId String
+}
+
+// Intermediate table for Many-to-Many relationship between Product and Category
+model CategoryProduct {
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  String
+
+  @@id([categoryId, productId])
+}
+
+model Category {
+  id            String            @id @default(uuid())
+  name          String // Name of the category
+  imageId       String            @unique
+  image         Attachment        @relation(fields: [imageId], references: [id]) // Image for the category
+  products      CategoryProduct[] // Products belonging to the category
+  subCategories SubCategory[] // Subcategories under this category
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+// Intermediate table for Many-to-Many relationship between Product and SubCategory
+model SubCategoryProduct {
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id])
+  subCategoryId String
+  product       Product     @relation(fields: [productId], references: [id])
+  productId     String
+
+  @@id([subCategoryId, productId])
+}
+
+model SubCategory {
+  id         String               @id @default(uuid())
+  name       String // Name of the subcategory
+  categoryId String
+  category   Category             @relation(fields: [categoryId], references: [id]) // Parent category
+  products   SubCategoryProduct[] // Products belonging to the subcategory
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+}
+
+model Order {
+  id                String              @id @default(uuid())
+  trackingNumber    String // Tracking number for the order
+  customerId        String
+  status            OrderStatus         @relation(fields: [orderStatusId], references: [id]) // Current status of the order
+  orderStatusType   OrderStatusType // Type of order status
+  paymentStatus     PaymentStatusType // Payment status of the order
+  amount            Float // Total amount of the order
+  salesTax          Float // Sales tax applied to the order
+  total             Float // Total amount including tax and fees
+  paidTotal         Float // Amount paid by the customer
+  paymentGateway    PaymentGatewayType // Payment gateway used for the order
+  paymentId         String? // Payment ID from the payment gateway
+  coupon            Coupon?             @relation(fields: [couponId], references: [id]) // Coupon applied to the order
+  couponId          String?
+  shop              Shop                @relation(fields: [ShopId], references: [id]) // Shop where the order was placed
+  ShopId            String
+  discount          Float? // Discount amount applied to the order
+  delieveryFee      Float? // Delivery fee for the order
+  delieveryTime     DateTime? // Estimated delivery time
+  shippingAddressId String
+  shippingAddress   Address             @relation(fields: [shippingAddressId], references: [id]) // Shipping address for the order
+  customer          User                @relation(fields: [customerId], references: [id]) // Customer who placed the order
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  OrderProductPivot OrderProductPivot[] // Products included in the order
+  orderStatusId     String
+  orderTracking     OrderTracking[] // Tracking information for the order
+}
+
+model OrderTracking {
+  id             String   @id @default(uuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id]) // Order associated with the tracking record
+  status         String // Current status of the shipment
+  carrier        String? // Carrier handling the shipment
+  trackingNumber String? // Tracking number provided by the carrier
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model OrderStatus {
+  id        String   @id @default(uuid())
+  name      String // Name of the order status (e.g., Pending, Shipped)
+  serial    Int // Serial number for ordering the statuses
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Order     Order[] // Orders associated with the status
+}
+
+enum PaymentGatewayType {
+  STRIPE
+  PAYPAL
+  GOOGLE_PAY
+  MTN_MOMO
+  AIRTEL_MONEY
+  ZAMTEL_KWACHA
+  CASH_ON_DELIVERY
+  WALLET
+  CASH
+}
+
+enum PaymentStatusType {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REVERSAL
+  CASH_ON_DELIVERY
+  WALLET
+  CASH
+  AWAITING_APPROVAL
+}
+
+enum OrderStatusType {
+  PENDING
+  PROCESSING
+  FAILED
+  REFUNDED
+  AT_LOCAL_FACILITY
+  OUT_FOR_DELIVERY
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Coupon {
+  id                 String     @id @default(uuid())
+  code               String // Coupon code
+  description        String? // Description of the coupon
+  minimum_cart_value Float // Minimum cart value to apply the coupon
+  orders             Order[] // Orders where the coupon was applied
+  type               CouponType // Type of coupon (e.g., percentage, fixed amount)
+  isValid            Boolean // Indicates if the coupon is valid
+  amount             Float // Discount amount or percentage
+  activeDate         DateTime // Start date for the coupon
+  expiryDate         DateTime // Expiry date for the coupon
+  target             Boolean? // Indicates if the coupon is targeted or not
+  isApproved         Boolean? // Indicates if the coupon is approved or not
+  shopId             String
+  shop               Shop       @relation(fields: [shopId], references: [id]) // Shop that created the coupon
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+}
+
+enum CouponType {
+  PERCENTAGE // Coupon applies a percentage discount
+  FIXED // Coupon applies a fixed amount discount
+  FREE_SHIPPING // Coupon provides free shipping
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Float // Rating given in the review
+  comment   String // Comment provided in the review
+  userId    String
+  user      User     @relation(fields: [userId], references: [id]) // User who wrote the review
+  productId String
+  product   Product  @relation(fields: [productId], references: [id]) // Product reviewed
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WishList {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id]) // User who created the wish list
+  productId String
+  product   Product  @relation(fields: [productId], references: [id]) // Product in the wish list
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id]) // User who owns the cart
+  productId String
+  product   Product  @relation(fields: [productId], references: [id]) // Product in the cart
+  quantity  Int      @default(1) // Quantity of the product in the cart
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Inventory {
+  id        String   @id @default(uuid())
+  variantId String
+  variant   Variant  @relation(fields: [variantId], references: [id])
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  LOW_STOCK
+  NEW_PRODUCT
+  PROMOTION
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  entity    String // Model name (e.g., Order, Product, etc.)
+  entityId  String // Record ID of the entity
+  action    String // Create, Update, Delete
+  changedBy String // User ID who made the change
+  changedAt DateTime @default(now())
+  changes   Json // JSON object containing the changes made
+}
