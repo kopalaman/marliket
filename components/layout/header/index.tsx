@@ -12,17 +12,20 @@ import SearchBox from './_components/search-box'
 
 export default function SiteHeader() {
   return (
-    <header className="bg-background/30 sticky top-0 z-20 w-full border-b backdrop-blur-sm ">
+    <header
+      id="siteHeader"
+      className="bg-background/30 static z-20 w-full border-b backdrop-blur-sm "
+    >
       <div className="container z-40 flex h-16 items-center space-x-4 text-current text-sm sm:justify-between sm:space-x-6">
         <Navbar items={siteConfig.navBarMenu} />
         <div className="flex flex-1 items-center space-x-2 justify-end">
           <div className="flex items-center space-x-1">
             <Button
               variant="secondary"
-              className="hidden text-muted-foreground hover:text-primary text-xs items-center gap-4 sm:flex"
+              className="hidden text-muted-foreground hover:text-primary text-xs items-center gap-4 sm:flex "
               // onClick={() => setDisplayMobileHeaderSearch((prev) => !prev)}
             >
-              <span>Search for products here...</span>
+              <span className="mr-14">Search your products from here...</span>
               <SearchIcon size={20} />
             </Button>
             <Button variant="ghost" size="icon">
